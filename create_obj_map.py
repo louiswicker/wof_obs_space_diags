@@ -76,6 +76,9 @@ def main(argv=None):
     parser.add_option("-i", "--interactive", dest="interactive", default=False,  action="store_true",     \
                      help = "Boolean flag to dump infomation and plot image to screen")
 
+    parser.add_option("-p", "--plot", dest="plot", default=False,  action="store_true",     \
+                     help = "Boolean flag to plot image")
+
     (options, args) = parser.parse_args()
 
     if options.wrf_file == None or options.file == None:
@@ -233,20 +236,22 @@ def main(argv=None):
 
 # Plot out the innovations mapped to grid, and objects
 
-    fig, axes = P.subplots(1, 2, sharey=True, figsize=(18,8))
-    axes[0].contourf(innov_2d,cmap=P.cm.spectral, interpolation='nearest')
-    axes[0].set_title("Innovation Map: %s" % date.strftime("%Y-%m-%d %H:%M"))
+    if options.plot:
+
+        fig, axes = P.subplots(1, 2, sharey=True, figsize=(18,8))
+        axes[0].contourf(innov_2d,cmap=P.cm.spectral, interpolation='nearest')
+        axes[0].set_title("Innovation Map: %s" % date.strftime("%Y-%m-%d %H:%M"))
     #axes[0].set_aspect("equal")
     
-    axes[1].contourf(var_labels, cmap=P.cm.spectral, interpolation='nearest')
-    axes[1].set_title("Object Map: %s" % date.strftime("%Y-%m-%d %H:%M"))
+        axes[1].contourf(var_labels, cmap=P.cm.spectral, interpolation='nearest')
+        axes[1].set_title("Object Map: %s" % date.strftime("%Y-%m-%d %H:%M"))
     #axes[1].set_aspect("equal")
-    for k in range(1+len(var_props)-1):
-        axes[1].plot(int(np.round(var_props[k].centroid[1])), int(np.round(var_props[k].centroid[0])), "o", markersize=2.0, color='w')
+        for k in range(1+len(var_props)-1):
+            axes[1].plot(int(np.round(var_props[k].centroid[1])), int(np.round(var_props[k].centroid[0])), "o", markersize=2.0, color='w')
 
-    P.savefig(output_file[:-4]+".png")
-    if options.interactive:
-        P.show()
+        P.savefig(output_file[:-4]+".png")
+        if options.interactive:
+            P.show()
 
 
 #-------------------------------------------------------------------------------
