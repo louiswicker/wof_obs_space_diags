@@ -345,8 +345,11 @@ def main(argv=None):
     
     parser = OptionParser()
 
-    parser.add_option("-d", "--dir",  dest="dir",  default=None, nargs = 2, type="string",
-                       help = "Directory of files to process and file suffix [dir, obs_seq.final*]") 
+    parser.add_option("-d", "--dir",  dest="dir",  default=None, type="string",
+                       help = "Directory of files to process ")
+
+    parser.add_option("-f", "--file",  dest="file",  default=None, type="string",
+                       help = "wildcard of files to process ")
 
     parser.add_option("-p", "--prefix", dest="fprefix",  default=None, type="string",
                        help = "Preappend this string to the netcdf object filename")
@@ -363,9 +366,10 @@ def main(argv=None):
 
     else:
 
-        suffix = options.dir[1]
-#         print "%s/%s" % (os.path.abspath(options.dir[0]), suffix)
-        rawlist = glob.glob("%s/%s" % (os.path.abspath(options.dir[0]), suffix))
+        suffix = options.file
+        print "%s/%s" % (os.path.abspath(options.dir), suffix)
+        rawlist = glob.glob("%s/%s" % (os.path.abspath(options.dir), suffix))
+        print rawlist
         
         files = sorted( rawlist, key = lambda file: os.path.getmtime(file))
         

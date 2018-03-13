@@ -32,6 +32,8 @@ rectY = [left_h, bottom, 0.2, height]
 
 mpl.rcParams['figure.figsize'] = (12,10)
 
+_obs_error = [7.5, 3.0]
+
 # Create 15 min bins for a 9 hour period (9x4=36).  Each bin will average for analysis times
 time_bins = [ (15*t,15*(t+3)) for t in range(36)]
 
@@ -69,6 +71,7 @@ def obs_seq_2D_bin(df, variable, time=None, height=None, threshold=None, dart_qc
     
     # Create the data structures needed for bin information
     
+    fbins    = np.zeros((len(height),len(time)))
     bins     = np.zeros((len(height),len(time)))
     spread   = np.zeros((len(height),len(time)))
 
@@ -109,11 +112,11 @@ def obs_seq_2D_bin(df, variable, time=None, height=None, threshold=None, dart_qc
                 
             if threshold != None:  # threshold is a string, like "heights > 2000." 
                 cut3_df      = cut2_df.query(threshold)    
-                bins[m,n]    = cut3_df[variable].mean()
+                bins[m,n]    = np.std(cut3_df[variable], ddof=1)
                 spread[m,n]  = cut3_df['sdHxa'].mean()
                 num_obs[m,n] = np.sum(cut3_df[variable] != 0.0)
             else:
-                bins[m,n]    = cut2_df[variable].mean()
+                bins[m,n]    = np.std(cut2_df[variable], ddof=1)
                 spread[m,n]  = cut2_df['sdHxa'].mean()
                 num_obs[m,n] = np.sum(cut2_df[variable] != 0.0)
 
@@ -130,14 +133,14 @@ def obs_seq_2D_bin(df, variable, time=None, height=None, threshold=None, dart_qc
 #-------------------------------------------------------------------------------
 #
 
-def obs_seq_TimeHeightInnov(data_dict, plotlabel=None, ptype = "Prior"):
+def obs_seq_TimeHeightRMS(data_dict, plotlabel=None, otype="RMS", ptype = "Prior", obs_error=7.5):
     
     fig = plt.figure(figsize=(12,12))
-    fig.text(0.68, 0.75, "\n\nInnovation\nBlack Line = Innov\nBlue Line = %s Spread\nGreen = No. of Obs" % ptype, 
+    fig.text(0.68, 0.75, "\nBlack Line: RMSI\nBlue Line: %s Spread\nRed:  10*Consist Ratio\nGreen: # of obs" % ptype, 
              size=16, va="baseline", ha="left", multialignment="left")
     
     if plotlabel != None:
-        fig.text(0.68, 0.68, plotlabel, size=14, va="baseline", ha="left", multialignment="left")
+        fig.text(0.68, 0.68, plotlabel, size=20, va="baseline", ha="left", multialignment="center")
 
     zmin = 0.0
     zmax = 10.
@@ -193,6 +196,8 @@ def obs_seq_TimeHeightInnov(data_dict, plotlabel=None, ptype = "Prior"):
     axX = plt.axes(rectX)
     time_data   = data.mean(axis=0)
     time_spread = spread.mean(axis=0)
+    time_consist= 10*(time_spread**2 + obs_error**2) / (time_data**2)
+#   time_consist= np.sqrt((time_spread**2 + obs_error**2))
 
     start = datebins[0].strftime("%Y%m%d%H%M%S")
     end   = datebins[-1].strftime("%Y%m%d%H%M%S")
@@ -200,6 +205,7 @@ def obs_seq_TimeHeightInnov(data_dict, plotlabel=None, ptype = "Prior"):
     e     = dtime.datetime.strptime(end, "%Y%m%d%H%M%S")
     axX.plot(datebins, time_data, lw=2.0, color='k')
     axX.plot(datebins, time_spread, lw=1.0, color='b')
+    axX.plot(datebins, time_consist, lw=1.0, color='r')
 
     # Twin the x-axis to create a double y axis for num_obs
     axX2 = axX.twinx()
@@ -210,7 +216,7 @@ def obs_seq_TimeHeightInnov(data_dict, plotlabel=None, ptype = "Prior"):
     axX.set_xlim(s, e)
     axX.set_ylim(_cmin, _cmax)
     axX.set_xticklabels([])
-    axX.set_ylabel("Innovation/Spread")
+    axX.set_ylabel("RMSI/Spread/Consist")
     min_loc   = mdates.MinuteLocator(interval=15)
     axX.xaxis.set_minor_locator(min_loc)
     axX.grid(True)
@@ -220,9 +226,12 @@ def obs_seq_TimeHeightInnov(data_dict, plotlabel=None, ptype = "Prior"):
     axY           = plt.axes(rectY)
     height_data   = data.mean(axis=1)
     height_spread = spread.mean(axis=1)
+    height_consist= (height_spread**2 + obs_error**2) / (height_data**2)
+#   height_consist= np.sqrt((height_spread**2 + obs_error**2))
     
     axY.plot(height_data, z/1000., lw=2.0, color='k')
     axY.plot(height_spread, z/1000., lw=1.0, color='b')
+    axY.plot(height_consist, z/1000., lw=1.0, color='r')
     
     # Twin the y-axis to create a double x axis for num_obs
     axY2 = axY.twiny()
@@ -233,7 +242,7 @@ def obs_seq_TimeHeightInnov(data_dict, plotlabel=None, ptype = "Prior"):
     axY.set_ylim(0.0,z.max()/1000.)
     axY.set_xlim(-5.,15)
     axY.set_yticklabels([])
-    axY.set_xlabel("Innovation/Spread")
+    axY.set_xlabel("RMSI/Spread/Consist")
     
     # major ticks every 20, minor ticks every 5                                      
     major_ticks = np.arange(0,16,4)                                       
@@ -285,8 +294,10 @@ def main(argv=None):
     if options.var == "VR":
         kind = fileAttrs['DOPPLER_RADIAL_VELOCITY']
         _cmin, _cmax, _cinc = -15., 15., 1.0
+        obs_error = _obs_error[1]
     else:
         kind = fileAttrs['RADAR_REFLECTIVITY']
+        obs_error = _obs_error[0]
    
     field = obs_seq_get_obtype(dataset, kind=kind)
 
@@ -300,7 +311,7 @@ def main(argv=None):
         else:
             plotfilename = "INNOV_%s_%s" % (file[-11:-3], options.var)
         
-        plotlabel = "%s \n %s" % (file[0:file.find("obs")].replace("_",""), options.var)
+        plotlabel = "EXP: %s\nOBTYPE: %s" % (file[0:file.find("obs")].replace("_",""), options.var)
 
     else:
         plotfilename = options.plotfilename
@@ -314,9 +325,9 @@ def main(argv=None):
     
 #   Plot data
     if options.file.find("final") != 0: 
-        obs_seq_TimeHeightInnov(data_dict, plotlabel=plotlabel, ptype="Post")
+        obs_seq_TimeHeightRMS(data_dict, plotlabel=plotlabel, ptype="Post", obs_error=obs_error)
     else:
-        obs_seq_TimeHeightInnov(data_dict, plotlabel=plotlabel)
+        obs_seq_TimeHeightRMS(data_dict, plotlabel=plotlabel, obs_error=obs_error)
     
 #   Saving and plotting
     plt.savefig(plotfilename+".pdf")
